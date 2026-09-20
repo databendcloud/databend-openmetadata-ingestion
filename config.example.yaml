@@ -1,0 +1,36 @@
+# Copy to config.yaml. Values of the form ${ENV_VAR} are expanded from the environment.
+
+databend:
+  dsn: "databend://root:${DATABEND_PASSWORD}@localhost:8000/?sslmode=disable"
+
+openmetadata:
+  host: "http://localhost:8585/api"
+  jwt_token: "${OM_JWT_TOKEN}"
+  timeout_seconds: 30
+
+service:
+  # Immutable once created. When the native Databend connector is released,
+  # create a new service of type Databend and point this at it; the rest of the config is reusable.
+  name: databend_prod
+  display_name: Databend
+  description: "Databend (interim CustomDatabase service, synced by databend-om-sync)"
+  # Only honoured by OpenMetadata >= 2.0 (custom service style). Leave empty on older servers.
+  icon_url: ""
+
+metadata:
+  # Empty list = every catalog returned by SHOW CATALOGS.
+  catalogs: []
+  exclude_databases: [system, information_schema, system_history]
+  # Soft-delete OM databases/schemas/tables that no longer exist in Databend.
+  mark_deleted: true
+
+lineage:
+  state_file: .state/lineage_watermark.json
+  include_kinds: [CTAS, DML, CREATE_VIEW]
+  # Re-read this many seconds before the stored watermark to absorb late MERGEs into lineage_history.
+  lookback_seconds: 120
+  # For every view whose CREATE_VIEW edges appeared in this batch, drop OM upstream edges that
+  # Databend no longer reports (CREATE OR REPLACE VIEW / REFRESH LINEAGE). Touches only changed views.
+  prune_view_upstreams: true
+  # Rows fetched per page from lineage_history.
+  page_size: 5000
