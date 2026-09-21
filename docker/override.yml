@@ -1,0 +1,51 @@
+# Local E2E stack: official OM compose (om-official.yml, untouched copy) + this override + Databend.
+# Usage:  docker compose -p bendom -f om-official.yml -f override.yml up -d
+# Container names / host ports are changed so this can coexist with an OM dev checkout.
+services:
+  mysql:
+    container_name: bendom_mysql
+    ports: !override []
+    volumes: !override
+      - bendom-db-data:/var/lib/mysql
+
+  elasticsearch:
+    container_name: bendom_elasticsearch
+    ports: !override []
+
+  execute-migrate-all:
+    container_name: bendom_migrate
+
+  openmetadata-server:
+    container_name: bendom_server
+
+  ingestion:
+    profiles: ["disabled"]
+
+  databend:
+    container_name: bendom_databend
+    image: datafuselabs/databend:${DATABEND_TAG:-v1.2.947-nightly}
+    environment:
+      QUERY_CONFIG_FILE: /etc/databend/query.toml
+      # EE feature; supply via env / .env, never commit it.
+      QUERY_DATABEND_ENTERPRISE_LICENSE: ${QUERY_DATABEND_ENTERPRISE_LICENSE:?set QUERY_DATABEND_ENTERPRISE_LICENSE}
+    volumes:
+      - ./databend-query.toml:/etc/databend/query.toml:ro
+      - bendom-databend-data:/var/lib/databend
+    ports:
+      - "8000:8000"
+    networks:
+      - app_net
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/v1/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  bendom-db-data:
+  bendom-databend-data:
+
+networks:
+  app_net:
+    ipam: !override
+      driver: default

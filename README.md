@@ -27,14 +27,21 @@ same lineage script keeps working once you switch to a real `Databend` service.
 * Incremental runs use a watermark on `updated_on` (with `lookback_seconds` overlap). Because OM's
   `PUT /lineage` overwrites `lineageDetails`, each touched `(source_key, target_key)` edge is
   rebuilt from **all** its rows in Databend, so older column mappings survive.
-* Edge removals in Databend (`CREATE OR REPLACE VIEW`, `REFRESH LINEAGE`, drops) are not visible in
-  `lineage_history`. Two mitigations are built in:
-  * `metadata.mark_deleted` soft-deletes tables that disappeared, which hides their edges.
-  * `lineage.prune_view_upstreams` — for each view whose `CREATE_VIEW` edges appear in the batch,
-    OM upstream edges not reported by Databend are deleted (only `ViewLineage`/`QueryLineage`
-    edges; `Manual` edges are kept).
-  Stale `DML` edges between two live tables remain until Databend's `lineage_retention` ages
-  them out on the Databend side — they are not pruned here.
+* Databend-side facts verified against v1.2.947 that shape the cleanup logic:
+  * `DROP TABLE` only emits `DELETE_OBJECT` for transient tables (regular tables are undroppable
+    until vacuum), so the dropped table's edges stay in `lineage_history`. Here
+    `metadata.mark_deleted` soft-deletes the table and the edge is skipped (404) afterwards.
+  * `CREATE OR REPLACE VIEW` does **not** emit `DELETE_EDGE` (only `REFRESH LINEAGE` does), so the
+    superseded definition's edges stay in `lineage_history`. The aggregator keeps only the
+    `CREATE_VIEW` rows of the newest statement (`query_info.query_id`) per view, and
+    `lineage.prune_view_upstreams` deletes OM upstream edges of those views that Databend no longer
+    reports (only `ViewLineage`/`QueryLineage` edges; `Manual` edges are kept).
+  * Stale `DML` edges between two live tables remain until Databend's `lineage_retention` ages
+    them out — they are not pruned here.
+* Known cosmetic issue: `system.columns.data_type` is rendered by `TableDataType::sql_name()`, which
+  upper-cases nested TUPLE field names (`TUPLE(AGE INT32, CITY STRING)` for `tuple(age, city)`), so
+  STRUCT children in OM are upper-cased. `SHOW CREATE TABLE` keeps the case; fixing `sql_name()` in
+  Databend is the right place.
 
 ## Requirements
 
@@ -70,3 +77,22 @@ Service `serviceType` is immutable, so when the Databend connector ships: create
 ```bash
 pip install -e ".[dev]" && pytest
 ```
+
+### Local E2E stack
+
+`docker/` contains an untouched copy of the official OM compose plus an override that renames
+containers/ports (coexists with an OM dev checkout, drops the Airflow ingestion container) and adds
+a single-node Databend with `[lineage] on = true` and history tables enabled.
+
+```bash
+cd docker
+echo 'QUERY_DATABEND_ENTERPRISE_LICENSE=<ee-license>' > .env   # lineage is an EE feature; .env is git-ignored
+docker compose -p bendom -f om-official.yml -f override.yml up -d
+bendsql --dsn 'databend://root:@localhost:8000/?sslmode=disable' < fixture.sql
+# OM: http://localhost:8585 (admin/admin). Get the ingestion-bot JWT from Settings > Bots, then:
+export OM_JWT_TOKEN=...
+databend-om-sync -c ../config.yaml all
+```
+
+In Databend's own CI the license comes from the `DATABEND_ENTERPRISE_LICENSE_*` GitHub secrets
+(`.github/workflows/release.yml`, `cloud.yml`); release builds embed it at build time.

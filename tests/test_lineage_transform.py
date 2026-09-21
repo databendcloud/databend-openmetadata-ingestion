@@ -7,7 +7,7 @@ from databend_om_sync.lineage_sync import LineageRow, aggregate
 SVC = "databend_prod"
 
 
-def _row(kind, src, tgt, mappings, query, ts, keys=None):
+def _row(kind, src, tgt, mappings, query, ts, keys=None, query_id="q"):
     s_cat, s_db, s_name = src
     t_cat, t_db, t_name = tgt
     s_key, t_key = keys or (f"{s_cat}.{s_db}.{s_name}", f"{t_cat}.{t_db}.{t_name}")
@@ -21,7 +21,7 @@ def _row(kind, src, tgt, mappings, query, ts, keys=None):
             ],
         }
     )
-    query_info = json.dumps({"query_id": "q", "query_text": query})
+    query_info = json.dumps({"query_id": query_id, "query_text": query})
     return LineageRow.from_tuple(
         SVC,
         (ts, kind, s_key, t_key, s_cat, s_db, s_name, t_cat, t_db, t_name, column_lineage, query_info),
@@ -67,6 +67,21 @@ def test_self_edges_are_dropped_and_missing_columns_omitted():
     assert list(edges) == [("databend_prod.default.db.s", "databend_prod.default.db.t")]
     details = next(iter(edges.values())).to_lineage_details()
     assert details == {"source": "QueryLineage", "sqlQuery": "create table as"}
+
+
+def test_only_latest_create_view_statement_is_kept():
+    t1 = datetime(2026, 1, 1, 10)
+    t2 = datetime(2026, 1, 1, 11)
+    v = ("default", "db", "v")
+    rows = [
+        _row("CREATE_VIEW", ("default", "db", "old"), v, {}, "create view v as select from old", t1, query_id="q1"),
+        _row("CREATE_VIEW", ("default", "db", "a"), v, {}, "create view v as select from a,b", t2, query_id="q2"),
+        _row("CREATE_VIEW", ("default", "db", "b"), v, {}, "create view v as select from a,b", t2, query_id="q2"),
+        _row("DML", ("default", "db", "old"), ("default", "db", "t"), {}, "insert", t1, query_id="q0"),
+    ]
+    edges = aggregate(rows)
+    assert {k[0].rsplit(".", 1)[1] for k in edges if k[1].endswith(".v")} == {"a", "b"}
+    assert ("databend_prod.default.db.old", "databend_prod.default.db.t") in edges
 
 
 def test_variant_columns_accept_bytes_and_none():

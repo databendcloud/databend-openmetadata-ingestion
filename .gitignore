@@ -3,3 +3,5 @@
 config.yaml
 __pycache__/
 *.egg-info/
+docker/.env
+.state_token

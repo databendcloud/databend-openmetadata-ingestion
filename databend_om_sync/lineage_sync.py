@@ -40,6 +40,7 @@ class LineageRow:
     from_fqn: str
     to_fqn: str
     column_lineage: dict | None
+    query_id: str | None
     query_text: str | None
 
     @classmethod
@@ -49,6 +50,7 @@ class LineageRow:
             s_cat, s_db, s_name, t_cat, t_db, t_name,
             column_lineage, query_info,
         ) = r
+        info = _variant(query_info) or {}
         return cls(
             updated_on=updated_on,
             kind=kind,
@@ -57,7 +59,8 @@ class LineageRow:
             from_fqn=fqn.table_fqn(service, s_cat, s_db, s_name),
             to_fqn=fqn.table_fqn(service, t_cat, t_db, t_name),
             column_lineage=_variant(column_lineage),
-            query_text=(_variant(query_info) or {}).get("query_text"),
+            query_id=info.get("query_id"),
+            query_text=info.get("query_text"),
         )
 
 
@@ -116,10 +119,31 @@ class Edge:
         return details
 
 
+def _latest_view_definitions(rows: list[LineageRow]) -> dict[str, str | None]:
+    """to_fqn -> query_id of the newest CREATE VIEW statement for that view.
+
+    Databend does not emit DELETE_EDGE on CREATE OR REPLACE VIEW (only REFRESH LINEAGE does), so
+    lineage_history keeps edges from superseded definitions. A view has exactly one definition and
+    all its upstream edges come from that single statement, so older statements are dropped here.
+    """
+    latest: dict[str, tuple[datetime, str | None]] = {}
+    for r in rows:
+        if r.kind != "CREATE_VIEW":
+            continue
+        cand = (r.updated_on, r.query_id or "")
+        if r.to_fqn not in latest or cand > latest[r.to_fqn]:
+            latest[r.to_fqn] = cand
+    return {v: qid for v, (_, qid) in latest.items()}
+
+
 def aggregate(rows: Iterable[LineageRow]) -> dict[tuple[str, str], Edge]:
+    rows = list(rows)
+    latest_view = _latest_view_definitions(rows)
     edges: dict[tuple[str, str], Edge] = {}
     for row in rows:
         if row.from_fqn == row.to_fqn:
+            continue
+        if row.kind == "CREATE_VIEW" and (row.query_id or "") != latest_view.get(row.to_fqn):
             continue
         key = (row.from_fqn, row.to_fqn)
         edge = edges.get(key)

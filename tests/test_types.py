@@ -8,6 +8,8 @@ from databend_om_sync.types import parse_type, to_om_column
     [
         ("INT NULL", {"dataType": "INT"}),
         ("UInt64", {"dataType": "BIGINT"}),
+        ("BIGINT UNSIGNED NULL", {"dataType": "BIGINT"}),
+        ("TINYINT UNSIGNED", {"dataType": "TINYINT"}),
         ("VARCHAR", {"dataType": "STRING"}),
         ("BINARY NULL", {"dataType": "BYTES"}),
         ("DECIMAL(18, 4)", {"dataType": "DECIMAL", "precision": 18, "scale": 4}),

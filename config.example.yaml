@@ -15,7 +15,7 @@ service:
   display_name: Databend
   description: "Databend (interim CustomDatabase service, synced by databend-om-sync)"
   # Only honoured by OpenMetadata >= 2.0 (custom service style). Leave empty on older servers.
-  icon_url: ""
+  icon_url: "https://raw.githubusercontent.com/youngsofun/OpenMetadata/feat/databend-connector/openmetadata-ui/src/main/resources/ui/src/assets/img/service-icon-databend.svg"
 
 metadata:
   # Empty list = every catalog returned by SHOW CATALOGS.

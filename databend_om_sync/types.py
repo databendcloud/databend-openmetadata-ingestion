@@ -54,7 +54,7 @@ class ParsedType:
 
 def _strip_nullable(s: str) -> str:
     s = s.strip()
-    for suffix in (" NOT NULL", " NULL"):
+    for suffix in (" NOT NULL", " NULL", " UNSIGNED"):
         if s.upper().endswith(suffix):
             s = s[: -len(suffix)].strip()
     if s.upper().startswith("NULLABLE(") and s.endswith(")"):
