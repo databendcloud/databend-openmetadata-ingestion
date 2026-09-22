@@ -1,4 +1,6 @@
-# Local E2E stack: official OM compose (om-official.yml, untouched copy) + this override + Databend.
+# Local E2E stack: official OM compose (om-official.yml, untouched copy of
+# https://github.com/open-metadata/OpenMetadata/blob/main/docker/docker-compose-quickstart/docker-compose.yml,
+# Apache-2.0) + this override + Databend.
 # Usage:  docker compose -p bendom -f om-official.yml -f override.yml up -d
 # Container names / host ports are changed so this can coexist with an OM dev checkout.
 services:
