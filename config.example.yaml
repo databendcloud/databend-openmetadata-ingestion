@@ -9,13 +9,12 @@ openmetadata:
   timeout_seconds: 30
 
 service:
-  # Immutable once created. When the native Databend connector is released,
-  # create a new service of type Databend and point this at it; the rest of the config is reusable.
+  # OM service name; the first part of every FQN. Immutable once created.
   name: databend_prod
   display_name: Databend
-  description: "Databend (interim CustomDatabase service, synced by databend-om-sync)"
+  description: "Databend, synced by databend-om-sync"
   # Only honoured by OpenMetadata >= 2.0 (custom service style). Leave empty on older servers.
-  icon_url: "https://raw.githubusercontent.com/youngsofun/OpenMetadata/feat/databend-connector/openmetadata-ui/src/main/resources/ui/src/assets/img/service-icon-databend.svg"
+  icon_url: ""
 
 metadata:
   # Empty list = every catalog returned by SHOW CATALOGS.
@@ -25,6 +24,10 @@ metadata:
   mark_deleted: true
 
 lineage:
+  # Watermark file: the ONLY state this tool keeps. After each successful `lineage` run it stores the
+  # max(updated_on) of the rows processed; the next run reads rows newer than that (minus
+  # lookback_seconds). Keep it on persistent storage, always run from the same path (or use an
+  # absolute path), and do not share one file between concurrent runs. Deleting it = full replay.
   state_file: .state/lineage_watermark.json
   include_kinds: [CTAS, DML, CREATE_VIEW]
   # Re-read this many seconds before the stored watermark to absorb late MERGEs into lineage_history.

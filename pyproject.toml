@@ -1,7 +1,7 @@
 [project]
 name = "databend-om-sync"
 version = "0.1.0"
-description = "Sync Databend metadata and system_history.lineage_history into OpenMetadata via REST (interim, before the native connector lands)"
+description = "Sync Databend metadata and lineage (system_history.lineage_history) into OpenMetadata via REST"
 requires-python = ">=3.10"
 dependencies = [
     "databend-driver>=0.25",

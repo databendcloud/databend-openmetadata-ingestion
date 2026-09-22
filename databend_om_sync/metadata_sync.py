@@ -1,6 +1,6 @@
 """Databend catalog/database/table -> OM Database/DatabaseSchema/Table.
 
-Mapping follows the upstream connector PR (open-metadata/OpenMetadata#33387):
+Mapping:
 catalog -> Database, Databend database -> DatabaseSchema, table/view -> Table.
 """
 

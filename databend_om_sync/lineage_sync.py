@@ -1,6 +1,6 @@
 """system_history.lineage_history -> OM table lineage (with column lineage).
 
-Design (agreed for the interim tool):
+Design:
 * Edge endpoints are built from the catalog/database/name snapshot in lineage_history. Nothing is
   resolved per edge; a 404 from OM means the endpoint is not (yet / any more) in OM and the edge is
   skipped. The next metadata sync + next DML on that table heal it.
