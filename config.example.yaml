@@ -13,7 +13,8 @@ service:
   name: databend_prod
   display_name: Databend
   description: "Databend, synced by databend-om-sync"
-  # Only honoured by OpenMetadata >= 2.0 (custom service style). Leave empty on older servers.
+  # Optional logo shown for the service (OM versions whose UI reads `style.iconURL`; ignored otherwise).
+  # icon_url: "https://docs.databend.com/img/logo/logo-no-text.svg"
   icon_url: ""
 
 metadata:
