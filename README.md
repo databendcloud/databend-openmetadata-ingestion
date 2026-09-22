@@ -23,7 +23,7 @@ same lineage script keeps working once you switch to a real `Databend` service.
 * Endpoints are the catalog/database/name **snapshot** stored in `lineage_history`; IDs are not
   resolved. If OM returns 404 for an endpoint the edge is skipped and logged. Run `metadata` before
   `lineage`; renamed tables heal on their next DML.
-* `STAGE` endpoints are skipped (OM has no stage entity).
+* `STAGE` endpoints are skipped unless `stages.enabled` (see "Named stages").
 * Incremental runs use a watermark on `updated_on` (with `lookback_seconds` overlap). Because OM's
   `PUT /lineage` overwrites `lineageDetails`, each touched `(source_key, target_key)` edge is
   rebuilt from **all** its rows in Databend, so older column mappings survive.
