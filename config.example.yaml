@@ -40,3 +40,11 @@ bot:
   name: databend-sync-bot
   token_expiry: "90"        # OneHour | 1 | 7 | 30 | 60 | 90 | Unlimited (days)
   email_domain: open-metadata.org
+
+stages:
+  # Databend named stages are tenant-level objects. When enabled they are mounted as OM Tables with
+  # tableType=Stage under <service>.<database>.<schema> (same approach OM's Snowflake connector uses),
+  # and stage<->table lineage (COPY INTO both ways, CTAS/DML reading @stage) is synced. No columns.
+  enabled: false
+  database: default     # existing Databend catalog to mount under
+  schema: stages        # synthetic schema name; must not clash with a real database in that catalog

@@ -59,6 +59,19 @@ class MetadataConfig:
 
 
 @dataclass
+class StagesConfig:
+    """Databend named stages are tenant-level; OM only has Table (tableType=Stage) under a schema.
+
+    When enabled, stages are mounted as `<service>.<database>.<schema>.<stage>` and stage<->table
+    lineage edges are synced (COPY INTO both directions, CTAS/DML reading `@stage`).
+    """
+
+    enabled: bool = False
+    database: str = "default"
+    schema: str = "stages"
+
+
+@dataclass
 class LineageConfig:
     state_file: str = ".state/lineage_watermark.json"
     include_kinds: list[str] = field(default_factory=lambda: ["CTAS", "DML", "CREATE_VIEW"])
@@ -75,6 +88,7 @@ class Config:
     metadata: MetadataConfig
     lineage: LineageConfig
     bot: BotConfig
+    stages: StagesConfig
 
     @classmethod
     def load(cls, path: str | Path) -> "Config":
@@ -86,4 +100,5 @@ class Config:
             metadata=MetadataConfig(**raw.get("metadata", {})),
             lineage=LineageConfig(**raw.get("lineage", {})),
             bot=BotConfig(**raw.get("bot", {})),
+            stages=StagesConfig(**raw.get("stages", {})),
         )

@@ -20,6 +20,8 @@ class OpenMetadataClient:
         self._base = host.rstrip("/")
         self._timeout = timeout
         self._s = requests.Session()
+        # OM is normally reachable directly; do not let HTTP(S)_PROXY from the shell hijack calls.
+        self._s.trust_env = False
         self._s.headers.update(
             {"Authorization": f"Bearer {jwt_token}", "Content-Type": "application/json"}
         )

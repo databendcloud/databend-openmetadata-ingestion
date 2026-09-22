@@ -43,6 +43,17 @@ same lineage script keeps working once you switch to a real `Databend` service.
   STRUCT children in OM are upper-cased. `SHOW CREATE TABLE` keeps the case; fixing `sql_name()` in
   Databend is the right place.
 
+### Named stages (optional)
+
+Databend stages are tenant-level (no catalog/database), while OM only has `Table` with
+`tableType=Stage` living under a schema (that is how OM's Snowflake connector models stages). With
+`stages.enabled: true` every non-internal stage from `system.stages` is mounted as
+`<service>.<stages.database>.<stages.schema>.<stage>` (description = type + URL + comment, no
+columns) and STAGE endpoints in `lineage_history` are mapped to that FQN, so `COPY INTO @stage FROM t`,
+`COPY INTO t FROM @stage` and `CREATE TABLE t AS SELECT FROM @stage` all show up. Databend records
+no column lineage for stage edges. External stages could alternatively be mapped to an OM
+Storage Container by URL (as Snowflake does for `COPY_HISTORY`), which is out of scope here.
+
 ## Requirements
 
 * Python ≥ 3.10; `pip install -e .`

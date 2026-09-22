@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from typing import Any, Iterable
 
 from . import fqn
-from .config import Config
+from .config import Config, StagesConfig
 from .databend_client import DatabendClient
 from .om_client import OpenMetadataClient
 from .state import Watermark
@@ -44,10 +44,11 @@ class LineageRow:
     query_text: str | None
 
     @classmethod
-    def from_tuple(cls, service: str, r: tuple[Any, ...]) -> "LineageRow":
+    def from_tuple(cls, service: str, stages: StagesConfig, r: tuple[Any, ...]) -> "LineageRow":
         (
             updated_on, kind, s_key, t_key,
-            s_cat, s_db, s_name, t_cat, t_db, t_name,
+            s_type, s_cat, s_db, s_name,
+            t_type, t_cat, t_db, t_name,
             column_lineage, query_info,
         ) = r
         info = _variant(query_info) or {}
@@ -56,12 +57,19 @@ class LineageRow:
             kind=kind,
             source_key=s_key,
             target_key=t_key,
-            from_fqn=fqn.table_fqn(service, s_cat, s_db, s_name),
-            to_fqn=fqn.table_fqn(service, t_cat, t_db, t_name),
+            from_fqn=endpoint_fqn(service, stages, s_type, s_cat, s_db, s_name),
+            to_fqn=endpoint_fqn(service, stages, t_type, t_cat, t_db, t_name),
             column_lineage=_variant(column_lineage),
             query_id=info.get("query_id"),
             query_text=info.get("query_text"),
         )
+
+
+def endpoint_fqn(service: str, stages: StagesConfig, obj_type: str, cat: str, db: str, name: str) -> str:
+    """STAGE rows carry empty catalog/database; they are mounted under the configured schema."""
+    if obj_type == "STAGE":
+        return fqn.table_fqn(service, stages.database, stages.schema, name)
+    return fqn.table_fqn(service, cat, db, name)
 
 
 def _variant(value: Any) -> dict | None:
@@ -179,7 +187,7 @@ class LineageSync:
             since = since - timedelta(seconds=lc.lookback_seconds)
 
         changed_rows = [
-            LineageRow.from_tuple(self.service, r)
+            LineageRow.from_tuple(self.service, self.cfg.stages, r)
             for r in self.db.lineage_rows(since, lc.include_kinds, lc.page_size)
         ]
         stats.rows = len(changed_rows)
@@ -213,7 +221,7 @@ class LineageSync:
         rows: list[LineageRow] = []
         for i in range(0, len(keys), _KEY_BATCH):
             rows.extend(
-                LineageRow.from_tuple(self.service, r)
+                LineageRow.from_tuple(self.service, self.cfg.stages, r)
                 for r in self.db.lineage_rows_for_keys(keys[i : i + _KEY_BATCH], lc.include_kinds, lc.page_size)
             )
         return aggregate(rows)

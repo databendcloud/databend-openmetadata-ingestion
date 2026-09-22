@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 from . import fqn
 from .config import Config
-from .databend_client import ColumnRow, DatabendClient, TableRow
+from .databend_client import ColumnRow, DatabendClient, StageRow, TableRow
 from .om_client import OMError, OpenMetadataClient
 from .types import to_om_column
 
@@ -54,6 +54,15 @@ def build_table_payload(row: TableRow, columns: list[ColumnRow]) -> dict:
     if row.view_query:
         payload["schemaDefinition"] = row.view_query
     return payload
+
+
+def build_stage_payload(row: StageRow) -> dict:
+    desc = f"{row.stage_type} stage"
+    if row.url:
+        desc += f" at `{row.url}`"
+    if row.comment:
+        desc += f"\n\n{row.comment}"
+    return {"name": row.name, "tableType": "Stage", "columns": [], "description": desc}
 
 
 class MetadataSync:
@@ -108,9 +117,36 @@ class MetadataSync:
                         stats.errors.append(f"{schema_fqn}.{row.name}: {exc}")
                         logger.warning("failed table %s.%s: %s", schema_fqn, row.name, exc)
 
+        if self.cfg.stages.enabled:
+            self._sync_stages(seen, stats)
+
         if self.cfg.metadata.mark_deleted:
             stats.deleted = self._mark_deleted(seen)
         return stats
+
+    def _sync_stages(self, seen: dict[str, dict[str, set[str]]], stats: MetadataStats) -> None:
+        """Mount tenant-level named stages as tableType=Stage under `<stages.database>.<stages.schema>`."""
+        st = self.cfg.stages
+        if st.database not in seen:
+            self.om.upsert_database(self.service, st.database)
+            stats.databases += 1
+            seen[st.database] = {}
+        if st.schema in seen[st.database]:
+            raise ValueError(
+                f"stages.schema={st.schema!r} collides with a real Databend database in catalog {st.database!r}"
+            )
+        self.om.upsert_schema(fqn.build(self.service, st.database), st.schema)
+        stats.schemas += 1
+        schema_fqn = fqn.build(self.service, st.database, st.schema)
+        seen[st.database][st.schema] = set()
+        for row in self.db.stages():
+            try:
+                self.om.upsert_table(schema_fqn, build_stage_payload(row))
+                stats.tables += 1
+                seen[st.database][st.schema].add(row.name)
+            except OMError as exc:
+                stats.failed += 1
+                stats.errors.append(f"{schema_fqn}.{row.name}: {exc}")
 
     def _mark_deleted(self, seen: dict[str, dict[str, set[str]]]) -> int:
         """Soft-delete OM entities absent from this run. Catalogs that failed are left untouched."""

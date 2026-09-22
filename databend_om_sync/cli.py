@@ -17,7 +17,7 @@ from .om_client import OpenMetadataClient
 
 def _clients(cfg: Config) -> tuple[DatabendClient, OpenMetadataClient]:
     return (
-        DatabendClient(cfg.databend.dsn),
+        DatabendClient(cfg.databend.dsn, include_stages=cfg.stages.enabled),
         OpenMetadataClient(cfg.openmetadata.host, cfg.openmetadata.jwt_token, cfg.openmetadata.timeout_seconds),
     )
 

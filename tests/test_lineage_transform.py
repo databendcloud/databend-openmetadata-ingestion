@@ -2,7 +2,10 @@ import json
 from datetime import datetime
 
 from databend_om_sync import fqn
+from databend_om_sync.config import StagesConfig
 from databend_om_sync.lineage_sync import LineageRow, aggregate
+
+STAGES = StagesConfig(enabled=True, database="default", schema="stages")
 
 SVC = "databend_prod"
 
@@ -22,9 +25,12 @@ def _row(kind, src, tgt, mappings, query, ts, keys=None, query_id="q"):
         }
     )
     query_info = json.dumps({"query_id": query_id, "query_text": query})
+    s_type = "STAGE" if s_cat == "" else "TABLE"
+    t_type = "STAGE" if t_cat == "" else "TABLE"
     return LineageRow.from_tuple(
         SVC,
-        (ts, kind, s_key, t_key, s_cat, s_db, s_name, t_cat, t_db, t_name, column_lineage, query_info),
+        STAGES,
+        (ts, kind, s_key, t_key, s_type, s_cat, s_db, s_name, t_type, t_cat, t_db, t_name, column_lineage, query_info),
     )
 
 
@@ -87,7 +93,21 @@ def test_only_latest_create_view_statement_is_kept():
 def test_variant_columns_accept_bytes_and_none():
     ts = datetime(2026, 1, 1)
     row = LineageRow.from_tuple(
-        SVC, (ts, "DML", "k1", "k2", "default", "db", "a", "default", "db", "b", None, b'{"query_text": "q"}')
+        SVC,
+        STAGES,
+        (ts, "DML", "k1", "k2", "TABLE", "default", "db", "a", "TABLE", "default", "db", "b", None, b'{"query_text": "q"}'),
     )
     assert row.column_lineage is None
     assert row.query_text == "q"
+
+
+def test_stage_endpoints_are_mounted_under_configured_schema():
+    ts = datetime(2026, 1, 1, 10)
+    rows = [
+        _row("DML", ("default", "shop", "orders"), ("", "", "landing"), {}, "copy into @landing from orders", ts),
+        _row("DML", ("", "", "landing"), ("default", "shop", "t2"), {}, "copy into t2 from @landing", ts),
+    ]
+    edges = aggregate(rows)
+    assert ("databend_prod.default.shop.orders", "databend_prod.default.stages.landing") in edges
+    assert ("databend_prod.default.stages.landing", "databend_prod.default.shop.t2") in edges
+    assert "columnsLineage" not in edges[("databend_prod.default.stages.landing", "databend_prod.default.shop.t2")].to_lineage_details()

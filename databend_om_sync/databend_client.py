@@ -32,6 +32,14 @@ class TableRow:
 
 
 @dataclass
+class StageRow:
+    name: str
+    stage_type: str  # Internal | External
+    url: str | None
+    comment: str
+
+
+@dataclass
 class ColumnRow:
     database: str
     table: str
@@ -41,8 +49,9 @@ class ColumnRow:
 
 
 class DatabendClient:
-    def __init__(self, dsn: str):
+    def __init__(self, dsn: str, include_stages: bool = False):
         self._conn = BlockingDatabendClient(dsn).get_conn()
+        self.include_stages = include_stages
 
     def query(self, sql: str) -> Iterator[tuple[Any, ...]]:
         logger.debug("databend sql: %s", sql)
@@ -104,25 +113,35 @@ class DatabendClient:
         """
         return [ColumnRow(r[0], r[1], r[2], r[3] or "", r[4] or None) for r in self.query(sql)]
 
+    def stages(self) -> list[StageRow]:
+        """Named stages, minus the one the history-log subsystem creates for itself."""
+        sql = """
+            SELECT name, stage_type, url, comment
+            FROM system.stages
+            WHERE creator IS NULL OR creator NOT LIKE '%history-log%'
+            ORDER BY name
+        """
+        return [StageRow(r[0], r[1] or "", r[2] or None, r[3] or "") for r in self.query(sql)]
+
     # ---- lineage ---------------------------------------------------------------------------
     #
-    # Both endpoints are restricted to TABLE/VIEW: OM has no stage entity. Names are the snapshot
-    # recorded at event time; IDs are deliberately not resolved (eventual consistency is enough).
+    # Names are the snapshot recorded at event time; IDs are deliberately not resolved (eventual
+    # consistency is enough). STAGE endpoints are only included when the caller mounts stages.
 
     _LINEAGE_COLUMNS = """
         updated_on, lineage_kind,
         source_lineage_key, target_lineage_key,
-        source_catalog, source_database, source_name,
-        target_catalog, target_database, target_name,
+        source_object_type, source_catalog, source_database, source_name,
+        target_object_type, target_catalog, target_database, target_name,
         column_lineage, query_info
     """
 
-    @staticmethod
-    def _lineage_base_where(kinds: list[str]) -> list[str]:
+    def _lineage_base_where(self, kinds: list[str]) -> list[str]:
         kind_list = ", ".join(_lit(k) for k in kinds)
+        types = "('TABLE', 'VIEW', 'STAGE')" if self.include_stages else "('TABLE', 'VIEW')"
         return [
-            "source_object_type IN ('TABLE', 'VIEW')",
-            "target_object_type IN ('TABLE', 'VIEW')",
+            f"source_object_type IN {types}",
+            f"target_object_type IN {types}",
             f"lineage_kind IN ({kind_list})",
         ]
 
