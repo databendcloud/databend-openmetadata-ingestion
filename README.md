@@ -1,4 +1,4 @@
-# databend-om-sync
+# databend-openmetadata-ingestion
 
 Pushes [Databend](https://www.databend.com) metadata **and**
 [lineage](https://docs.databend.com/guides/data-management/data-lineage) into
@@ -13,7 +13,7 @@ server as-is: no server plugin, no custom ingestion image.
 | catalog (`SHOW CATALOGS`) | `Database` |
 | database (`system.databases`) | `DatabaseSchema` |
 | table / view (`system.tables`, `system.views`) | `Table` (`tableType` Regular/View/External/Transient/Iceberg, `schemaDefinition` = view SQL) |
-| column (`system.columns.data_type`) | `Column` (type map in `databend_om_sync/types.py`) |
+| column (`system.columns.data_type`) | `Column` (type map in `databend_openmetadata_ingestion/types.py`) |
 | named stage (`system.stages`, optional) | `Table` with `tableType=Stage` under a configurable schema |
 | `system_history.lineage_history` row | table→table lineage edge with `columnsLineage`, `sqlQuery`, `source` = `ViewLineage` for `CREATE_VIEW`, else `QueryLineage` |
 
@@ -34,19 +34,21 @@ FQNs are `service.catalog.database.table`.
 
 ## Usage
 
+The CLI is installed as `bend-om` (alias: `databend-openmetadata-ingestion`).
+
 ```bash
 cp config.example.yaml config.yaml          # edit; ${ENV_VAR} placeholders are expanded
 
 # once, by an OM admin: creates bot + policy + role and prints the bot JWT
-OM_ADMIN_EMAIL=admin@example.com OM_ADMIN_PASSWORD=... databend-om-sync -c config.yaml init-bot
-#   with SSO (no basic-auth login):  OM_ADMIN_TOKEN=<any admin JWT> databend-om-sync init-bot
+OM_ADMIN_EMAIL=admin@example.com OM_ADMIN_PASSWORD=... bend-om -c config.yaml init-bot
+#   with SSO (no basic-auth login):  OM_ADMIN_TOKEN=<any admin JWT> bend-om init-bot
 #   write to a file instead of stdout: --write-token /path/to/token   (mode 600)
 export OM_JWT_TOKEN=...                     # the bot token
 
-databend-om-sync -c config.yaml init-service   # create/update the service (idempotent)
-databend-om-sync -c config.yaml metadata       # full sync of catalogs/databases/tables/columns
-databend-om-sync -c config.yaml lineage        # incremental; --full ignores the watermark
-databend-om-sync -c config.yaml all            # the three above
+bend-om -c config.yaml init-service   # create/update the service (idempotent)
+bend-om -c config.yaml metadata       # full sync of catalogs/databases/tables/columns
+bend-om -c config.yaml lineage        # incremental; --full ignores the watermark
+bend-om -c config.yaml all            # the three above
 ```
 
 Schedule `metadata` (e.g. hourly) and `lineage` (e.g. every 5–15 min) with cron/Airflow. Run
@@ -136,7 +138,7 @@ docker compose -p bendom -f om-official.yml -f override.yml up -d
 bendsql --dsn 'databend://root:@localhost:8000/?sslmode=disable' < fixture.sql
 # OM: http://localhost:8585 (admin/admin)
 OM_ADMIN_EMAIL=admin@open-metadata.org OM_ADMIN_PASSWORD=admin \
-  databend-om-sync -c ../config.yaml init-bot --write-token ../.state/bot_token
+  bend-om -c ../config.yaml init-bot --write-token ../.state/bot_token
 export OM_JWT_TOKEN=$(cat ../.state/bot_token)
-databend-om-sync -c ../config.yaml all
+bend-om -c ../config.yaml all
 ```

@@ -12,7 +12,7 @@ service:
   # OM service name; the first part of every FQN. Immutable once created.
   name: databend_prod
   display_name: Databend
-  description: "Databend, synced by databend-om-sync"
+  description: "Databend, synced by databend-openmetadata-ingestion"
   # Optional logo shown for the service (OM versions whose UI reads `style.iconURL`; ignored otherwise).
   # icon_url: "https://docs.databend.com/img/logo/logo-no-text.svg"
   icon_url: ""

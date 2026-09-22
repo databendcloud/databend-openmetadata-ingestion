@@ -77,7 +77,7 @@ def cmd_lineage(cfg: Config, full: bool) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="databend-om-sync")
+    p = argparse.ArgumentParser(prog="bend-om")
     p.add_argument("-c", "--config", default="config.yaml")
     p.add_argument("-v", "--verbose", action="store_true")
     sub = p.add_subparsers(dest="cmd", required=True)

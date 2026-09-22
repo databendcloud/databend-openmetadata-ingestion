@@ -1,6 +1,6 @@
 import pytest
 
-from databend_om_sync.types import parse_type, to_om_column
+from databend_openmetadata_ingestion.types import parse_type, to_om_column
 
 
 @pytest.mark.parametrize(

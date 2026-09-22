@@ -119,8 +119,8 @@ class OpenMetadataClient:
             "connection": {
                 "config": {
                     "type": "CustomDatabase",
-                    "sourcePythonClass": "databend_om_sync.noop.NoopSource",
-                    "connectionOptions": {"engine": "databend", "syncedBy": "databend-om-sync"},
+                    "sourcePythonClass": "databend_openmetadata_ingestion.noop.NoopSource",
+                    "connectionOptions": {"engine": "databend", "syncedBy": "databend-openmetadata-ingestion"},
                 }
             },
         }

@@ -43,10 +43,10 @@ class BotResult:
 
 def bootstrap_bot(om_admin: OpenMetadataClient, name: str, token_expiry: str, email_domain: str) -> BotResult:
     policy = om_admin.upsert_policy(
-        f"{name}-policy", "Least-privilege policy for databend-om-sync.", _RULES
+        f"{name}-policy", "Least-privilege policy for databend-openmetadata-ingestion.", _RULES
     )
-    role = om_admin.upsert_role(f"{name}-role", "Role for databend-om-sync bot.", [policy["name"]])
+    role = om_admin.upsert_role(f"{name}-role", "Role for databend-openmetadata-ingestion bot.", [policy["name"]])
     user = om_admin.upsert_bot_user(name, f"{name}@{email_domain}", [role["id"]], token_expiry)
-    om_admin.upsert_bot(name, user["name"], "Bot used by databend-om-sync to push Databend metadata and lineage.")
+    om_admin.upsert_bot(name, user["name"], "Bot used by databend-openmetadata-ingestion to push Databend metadata and lineage.")
     token = om_admin.generate_bot_token(user["id"], token_expiry)
     return BotResult(bot_name=name, bot_user_id=user["id"], role=role["name"], policy=policy["name"], token=token)

@@ -1,9 +1,9 @@
 import json
 from datetime import datetime
 
-from databend_om_sync import fqn
-from databend_om_sync.config import StagesConfig
-from databend_om_sync.lineage_sync import LineageRow, aggregate
+from databend_openmetadata_ingestion import fqn
+from databend_openmetadata_ingestion.config import StagesConfig
+from databend_openmetadata_ingestion.lineage_sync import LineageRow, aggregate
 
 STAGES = StagesConfig(enabled=True, database="default", schema="stages")
 
