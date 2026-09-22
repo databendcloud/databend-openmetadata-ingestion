@@ -35,7 +35,7 @@ class OpenMetadataConfig:
 
 @dataclass
 class BotConfig:
-    name: str = "databend-sync-bot"
+    name: str = "DatabendIngestionBot"
     # OneHour | 1 | 7 | 30 | 60 | 90 | Unlimited (days)
     token_expiry: str = "90"
     email_domain: str = "open-metadata.org"

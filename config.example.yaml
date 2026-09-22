@@ -41,7 +41,7 @@ lineage:
 
 bot:
   # Used only by `init-bot` (run once by an OM admin).
-  name: databend-sync-bot
+  name: DatabendIngestionBot
   token_expiry: "90"        # OneHour | 1 | 7 | 30 | 60 | 90 | Unlimited (days)
   email_domain: open-metadata.org
 
