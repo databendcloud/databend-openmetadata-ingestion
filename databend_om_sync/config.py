@@ -34,6 +34,14 @@ class OpenMetadataConfig:
 
 
 @dataclass
+class BotConfig:
+    name: str = "databend-sync-bot"
+    # OneHour | 1 | 7 | 30 | 60 | 90 | Unlimited (days)
+    token_expiry: str = "90"
+    email_domain: str = "open-metadata.org"
+
+
+@dataclass
 class ServiceConfig:
     name: str
     display_name: str = "Databend"
@@ -66,6 +74,7 @@ class Config:
     service: ServiceConfig
     metadata: MetadataConfig
     lineage: LineageConfig
+    bot: BotConfig
 
     @classmethod
     def load(cls, path: str | Path) -> "Config":
@@ -76,4 +85,5 @@ class Config:
             service=ServiceConfig(**raw["service"]),
             metadata=MetadataConfig(**raw.get("metadata", {})),
             lineage=LineageConfig(**raw.get("lineage", {})),
+            bot=BotConfig(**raw.get("bot", {})),
         )

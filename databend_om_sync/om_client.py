@@ -54,6 +54,56 @@ class OpenMetadataClient:
             if not after:
                 return
 
+    # ---- admin / bot bootstrap ---------------------------------------------------------------
+
+    @classmethod
+    def login_basic(cls, host: str, email: str, password: str, timeout: int = 30) -> str:
+        """Basic-auth login (OM's built-in auth provider); returns a short-lived access token."""
+        import base64
+
+        resp = requests.post(
+            f"{host.rstrip('/')}/v1/users/login",
+            json={"email": email, "password": base64.b64encode(password.encode()).decode()},
+            timeout=timeout,
+        )
+        if resp.status_code >= 400:
+            raise OMError(resp.status_code, resp.text[:2000])
+        return resp.json()["accessToken"]
+
+    def upsert_policy(self, name: str, description: str, rules: list[dict]) -> dict:
+        return self._req(
+            "PUT", "/v1/policies", json={"name": name, "description": description, "rules": rules}
+        )
+
+    def upsert_role(self, name: str, description: str, policy_names: list[str]) -> dict:
+        return self._req(
+            "PUT", "/v1/roles", json={"name": name, "description": description, "policies": policy_names}
+        )
+
+    def upsert_bot_user(self, name: str, email: str, role_ids: list[str], token_expiry: str) -> dict:
+        return self._req(
+            "PUT",
+            "/v1/users",
+            json={
+                "name": name,
+                "email": email,
+                "isBot": True,
+                "botName": name,
+                "roles": role_ids,
+                "authenticationMechanism": {"authType": "JWT", "config": {"JWTTokenExpiry": token_expiry}},
+            },
+        )
+
+    def upsert_bot(self, name: str, bot_user_name: str, description: str) -> dict:
+        return self._req(
+            "PUT", "/v1/bots", json={"name": name, "botUser": bot_user_name, "description": description}
+        )
+
+    def generate_bot_token(self, bot_user_id: str, expiry: str) -> str:
+        """expiry: OneHour | 1 | 7 | 30 | 60 | 90 | Unlimited (days)."""
+        mech = self._req("PUT", f"/v1/users/generateToken/{bot_user_id}", json={"JWTTokenExpiry": expiry})
+        return mech["JWTToken"]
+
     # ---- service ---------------------------------------------------------------------------
 
     def upsert_custom_database_service(

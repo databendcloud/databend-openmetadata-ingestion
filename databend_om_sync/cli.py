@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import logging
+import os
 import sys
+from pathlib import Path
 
+from .bot_bootstrap import bootstrap_bot
 from .config import Config
 from .databend_client import DatabendClient
 from .lineage_sync import LineageSync
@@ -16,6 +20,29 @@ def _clients(cfg: Config) -> tuple[DatabendClient, OpenMetadataClient]:
         DatabendClient(cfg.databend.dsn),
         OpenMetadataClient(cfg.openmetadata.host, cfg.openmetadata.jwt_token, cfg.openmetadata.timeout_seconds),
     )
+
+
+def cmd_init_bot(cfg: Config, args: argparse.Namespace) -> int:
+    """Needs an admin credential: OM_ADMIN_TOKEN, or OM_ADMIN_EMAIL + OM_ADMIN_PASSWORD (basic auth)."""
+    om_cfg = cfg.openmetadata
+    admin_token = os.environ.get("OM_ADMIN_TOKEN")
+    if not admin_token:
+        email = os.environ.get("OM_ADMIN_EMAIL") or input("OM admin email: ")
+        password = os.environ.get("OM_ADMIN_PASSWORD") or getpass.getpass("OM admin password: ")
+        admin_token = OpenMetadataClient.login_basic(om_cfg.host, email, password, om_cfg.timeout_seconds)
+    om = OpenMetadataClient(om_cfg.host, admin_token, om_cfg.timeout_seconds)
+
+    res = bootstrap_bot(om, cfg.bot.name, cfg.bot.token_expiry, cfg.bot.email_domain)
+    print(f"bot={res.bot_name} user_id={res.bot_user_id} role={res.role} policy={res.policy}")
+    if args.write_token:
+        path = Path(args.write_token)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(res.token)
+        path.chmod(0o600)
+        print(f"token written to {path} (mode 600); export OM_JWT_TOKEN=$(cat {path})")
+    else:
+        print("OM_JWT_TOKEN=" + res.token)
+    return 0
 
 
 def cmd_init_service(cfg: Config) -> int:
@@ -54,6 +81,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("-c", "--config", default="config.yaml")
     p.add_argument("-v", "--verbose", action="store_true")
     sub = p.add_subparsers(dest="cmd", required=True)
+    bot = sub.add_parser(
+        "init-bot",
+        help="(admin) create a least-privilege bot + policy + role and print/write its JWT",
+    )
+    bot.add_argument("--write-token", metavar="PATH", help="write the JWT to PATH instead of stdout")
     sub.add_parser("init-service", help="create/update the CustomDatabase service in OM")
     sub.add_parser("metadata", help="full sync of catalogs/databases/tables/columns")
     lin = sub.add_parser("lineage", help="incremental sync of lineage_history (use --full to ignore the watermark)")
@@ -68,6 +100,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     cfg = Config.load(args.config)
 
+    if args.cmd == "init-bot":
+        return cmd_init_bot(cfg, args)
     if args.cmd == "init-service":
         return cmd_init_service(cfg)
     if args.cmd == "metadata":

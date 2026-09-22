@@ -47,8 +47,8 @@ same lineage script keeps working once you switch to a real `Databend` service.
 
 * Python ≥ 3.10; `pip install -e .`
 * Databend started with `--lineage-on=true` and history tables enabled (`system_history.lineage_history` exists).
-* An OM bot JWT with permission to create services/databases/tables and edit lineage (the default
-  `ingestion-bot` token works).
+* An OM bot JWT. Use `init-bot` (below) to create a least-privilege bot; the built-in
+  `ingestion-bot` token also works but is over-privileged.
 * Databend session timezone must be UTC (the default); the watermark is compared as a naive
   timestamp literal.
 
@@ -56,11 +56,21 @@ same lineage script keeps working once you switch to a real `Databend` service.
 
 ```bash
 cp config.example.yaml config.yaml          # edit, or export DATABEND_PASSWORD / OM_JWT_TOKEN
+
+# once, by an OM admin: bot + policy + role, prints the JWT (or --write-token PATH, mode 600)
+OM_ADMIN_EMAIL=admin@example.com OM_ADMIN_PASSWORD=... databend-om-sync -c config.yaml init-bot
+#   (with SSO instead of basic auth: OM_ADMIN_TOKEN=<any admin JWT> databend-om-sync init-bot)
+export OM_JWT_TOKEN=...                     # the bot token from the step above
+
 databend-om-sync -c config.yaml init-service
 databend-om-sync -c config.yaml metadata     # full sync, idempotent
 databend-om-sync -c config.yaml lineage      # incremental; --full ignores the watermark
 databend-om-sync -c config.yaml all          # the three above
 ```
+
+The bot's policy allows `Create/ViewAll/EditAll/Delete` on `databaseService`, `database`,
+`databaseSchema`, `table` only, and denies `EditDisplayName`. Re-running `init-bot` rotates the
+token (the previous one stops working). Token lifetime: `bot.token_expiry` (default 90 days).
 
 Schedule `metadata` (e.g. hourly) and `lineage` (e.g. every 5–15 min) with cron/Airflow. Run
 `lineage --full` once after the first `metadata` sync and after any long outage.
@@ -89,8 +99,10 @@ cd docker
 echo 'QUERY_DATABEND_ENTERPRISE_LICENSE=<ee-license>' > .env   # lineage is an EE feature; .env is git-ignored
 docker compose -p bendom -f om-official.yml -f override.yml up -d
 bendsql --dsn 'databend://root:@localhost:8000/?sslmode=disable' < fixture.sql
-# OM: http://localhost:8585 (admin/admin). Get the ingestion-bot JWT from Settings > Bots, then:
-export OM_JWT_TOKEN=...
+# OM: http://localhost:8585 (admin/admin)
+OM_ADMIN_EMAIL=admin@open-metadata.org OM_ADMIN_PASSWORD=admin \
+  databend-om-sync -c ../config.yaml init-bot --write-token ../.state/bot_token
+export OM_JWT_TOKEN=$(cat ../.state/bot_token)
 databend-om-sync -c ../config.yaml all
 ```
 
