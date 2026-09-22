@@ -83,8 +83,11 @@ timestamp, not wall-clock time, so machine clocks do not matter.
 
 * Edges are written by name as recorded in `lineage_history`; if either endpoint does not exist in
   OM (404) the edge is skipped and logged. Run `metadata` before `lineage`.
-* OM's `PUT /lineage` replaces an edge's details, so every edge touched in a run is rebuilt from
-  **all** of its rows in Databend — older column mappings are preserved.
+* One table pair can have several `lineage_history` rows (one per distinct set of column mappings,
+  e.g. two `INSERT`s filling different columns), but OM has a single edge per pair and its
+  `PUT /lineage` **replaces** the edge's column lineage instead of merging. An incremental run
+  therefore uses the new rows only to find *which* edges changed, then re-reads **all** rows of those
+  edges from Databend and writes the union — mappings from earlier statements are not lost.
 * One OM edge per table pair: `CREATE_VIEW` sets `source=ViewLineage`, otherwise `QueryLineage`;
   column mappings are unioned; `sqlQuery` is the most recent statement.
 * A view's upstream edges come from its newest `CREATE VIEW` statement only; with
