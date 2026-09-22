@@ -1,7 +1,9 @@
 # databend-om-sync
 
-Pushes Databend metadata **and** lineage into OpenMetadata over the REST API. Works with any
-OpenMetadata 1.x/2.x server as-is: no server plugin, no custom ingestion image.
+Pushes [Databend](https://www.databend.com) metadata **and**
+[lineage](https://docs.databend.com/guides/data-management/data-lineage) into
+[OpenMetadata](https://open-metadata.org) over the REST API. Works with any OpenMetadata 1.x/2.x
+server as-is: no server plugin, no custom ingestion image.
 
 ## What it does
 
@@ -20,9 +22,10 @@ FQNs are `service.catalog.database.table`.
 ## Requirements
 
 * Python ≥ 3.10; `pip install -e .`
-* Databend with lineage enabled (`[lineage] on = true` / `--lineage-on=true`) and history tables
-  enabled, so that `system_history.lineage_history` exists. Lineage is an Enterprise feature; the
-  Databend server needs a valid license — this tool does not.
+* Databend with [data lineage](https://docs.databend.com/guides/data-management/data-lineage)
+  enabled (`[lineage] on = true` / `--lineage-on=true`) and history tables enabled, so that
+  `system_history.lineage_history` exists. Lineage is an Enterprise feature; the Databend server
+  needs a valid license — this tool does not.
 * An OpenMetadata bot JWT. `init-bot` (below) creates a least-privilege bot; the built-in
   `ingestion-bot` token also works but is over-privileged.
 * The Databend user needs `SELECT` on `system.*` and `system_history.lineage_history`.
